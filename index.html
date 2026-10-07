@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Cuaca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-a: #0B1220;
+    --bg-b: #16233B;
+    --text-primary: #F5F7FA;
+    --text-secondary: #93A4B8;
+    --panel-line: rgba(245, 247, 250, 0.16);
+    --accent: #F2A65A;
+    --danger-bg: rgba(214, 90, 90, 0.14);
+    --danger-text: #E8A0A0;
+    --danger-line: rgba(214, 90, 90, 0.4);
+  }
+
+  body[data-mood="clear"]   { --bg-a: #14335C; --bg-b: #E88A46; }
+  body[data-mood="cloudy"]  { --bg-a: #3E4C5E; --bg-b: #7C8CA0; }
+  body[data-mood="fog"]     { --bg-a: #454C55; --bg-b: #838C97; }
+  body[data-mood="rain"]    { --bg-a: #0E2233; --bg-b: #1F5271; }
+  body[data-mood="storm"]   { --bg-a: #171029; --bg-b: #4A3A78; }
+  body[data-mood="snow"] {
+    --bg-a: #D7E3F0; --bg-b: #A9C2DD;
+    --text-primary: #1A2433; --text-secondary: #4B5A6E;
+    --panel-line: rgba(26, 36, 51, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'IBM Plex Sans', sans-serif;
+    color: var(--text-primary);
+    background: linear-gradient(160deg, var(--bg-a) 0%, var(--bg-b) 100%);
+    display: flex;
+    justify-content: center;
+    padding: 64px 24px;
+  }
+
+  main { width: 100%; max-width: 620px; }
+
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 32px; }
+  .brand-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .brand h1 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0.2px; }
+
+  .code-note { font-size: 12px; color: var(--text-secondary); margin: 0 0 24px 0; line-height: 1.6; }
+  .code-note a { color: var(--accent); }
+  .code-note code {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  #city-input {
+    flex: 1;
+    min-width: 0;
+    padding: 13px 15px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-line);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+  }
+
+  #city-input::placeholder { color: var(--text-secondary); }
+  #city-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .search-row { display: flex; gap: 8px; margin-bottom: 8px; }
+
+  button {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-line);
+    padding: 13px 18px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    transition: background 0.15s ease;
+  }
+
+  button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  #search-btn { background: var(--accent); color: #1A1200; border-color: transparent; }
+  #search-btn:hover:not(:disabled) { background: #f5b573; }
+
+  #status-text { min-height: 18px; font-size: 13px; color: var(--text-secondary); margin: 4px 0 32px 2px; }
+
+  #error-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-line);
+    color: var(--danger-text);
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .hidden { display: none !important; }
+
+  #result { animation: rise 0.4s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .readout { border-top: 1px solid var(--panel-line); border-bottom: 1px solid var(--panel-line); padding: 28px 0; }
+  .location { font-size: 14px; color: var(--text-secondary); margin: 0 0 20px 0; }
+  .hero-temp { display: flex; align-items: center; gap: 18px; }
+  .hero-temp .icon { font-size: 56px; line-height: 1; }
+  .hero-temp .temp { font-family: 'Space Grotesk', sans-serif; font-size: 72px; font-weight: 700; line-height: 1; }
+  .condition { font-size: 17px; font-weight: 500; margin: 18px 0 4px 0; }
+  .feels-like { font-size: 14px; color: var(--text-secondary); margin: 0; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 24px; }
+  .stat { padding: 6px 16px; border-left: 1px solid var(--panel-line); display: flex; flex-direction: column; gap: 4px; }
+  .stat:nth-child(3n+1) { border-left: none; padding-left: 0; }
+  .stat-label { font-size: 12px; color: var(--text-secondary); }
+  .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 500; }
+
+  footer { margin-top: 32px; font-size: 12px; color: var(--text-secondary); }
+  footer a { color: inherit; }
+
+  @media (max-width: 480px) {
+    .hero-temp .temp { font-size: 56px; }
+    .hero-temp .icon { font-size: 44px; }
+    .stats { grid-template-columns: repeat(2, 1fr); row-gap: 16px; }
+    .stat:nth-child(2n+1) { border-left: none !important; padding-left: 0 !important; }
+    .stat:nth-child(3n+1) { border-left: 1px solid var(--panel-line); padding-left: 16px; }
+  }
+</style>
+</head>
+<body data-mood="default">
+
+<main>
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <h1>Radar Cuaca</h1>
+  </div>
+
+  <p class="code-note">
+    API key sudah ditulis langsung di kode sebagai konstanta
+    (cari <code>const API_KEY</code> di bagian &lt;script&gt; dan ganti nilainya).
+    Belum punya key? Daftar gratis di
+    <a href="https://home.openweathermap.org/users/sign_up" target="_blank" rel="noopener">openweathermap.org</a>
+    — key baru butuh 10 menit–2 jam untuk aktif.
+  </p>
+
+  <div class="search-row">
+    <input type="text" id="city-input" placeholder="Cari kota, mis. Medan, Jakarta, Bandung" autocomplete="off">
+    <button id="search-btn" type="button">Cari</button>
+    <button id="geo-btn" type="button" title="Gunakan lokasi saya">📍</button>
+  </div>
+
+  <p id="status-text"></p>
+  <div id="error-box" class="hidden" role="alert"></div>
+  <div id="result" class="hidden"></div>
+
+  <footer>Sumber data: OpenWeatherMap.org — membutuhkan API key gratis milikmu sendiri</footer>
+</main>
+
+<script>
+  /* =========================================================
+     RADAR CUACA — Weather App (OpenWeatherMap edition)
+     ES6+: const/let, arrow function, template literal,
+     destructuring, async/await, try/catch/finally,
+     Array.find(), nullish coalescing, optional chaining.
+     ========================================================= */
+
+  // ---------- Konfigurasi & konstanta ----------
+  // Ganti nilai di bawah ini dengan API key asli dari akun OpenWeatherMap kamu.
+  // Daftar gratis di https://home.openweathermap.org/users/sign_up
+  const API_KEY = '10bb2b35f9ae486aabc7d28870b37798';
+  const CURRENT_WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
+
+  // Rentang kode kondisi cuaca OpenWeatherMap -> ikon & mood latar belakang
+  const WEATHER_VISUALS = [
+    { min: 200, max: 299, icon: '⛈️', mood: 'storm' },
+    { min: 300, max: 399, icon: '🌦️', mood: 'rain' },
+    { min: 500, max: 599, icon: '🌧️', mood: 'rain' },
+    { min: 600, max: 699, icon: '❄️', mood: 'snow' },
+    { min: 700, max: 799, icon: '🌫️', mood: 'fog' },
+    { min: 800, max: 800, icon: '☀️', mood: 'clear' },
+    { min: 801, max: 801, icon: '🌤️', mood: 'clear' },
+    { min: 802, max: 802, icon: '⛅', mood: 'cloudy' },
+    { min: 803, max: 804, icon: '☁️', mood: 'cloudy' },
+  ];
+  const DEFAULT_VISUAL = { icon: '❔', mood: 'default' };
+
+  const getWeatherVisual = (conditionId) =>
+    WEATHER_VISUALS.find(({ min, max }) => conditionId >= min && conditionId <= max) ?? DEFAULT_VISUAL;
+
+  const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+  // ---------- Referensi elemen DOM ----------
+  const els = {
+    cityInput: document.getElementById('city-input'),
+    searchBtn: document.getElementById('search-btn'),
+    geoBtn: document.getElementById('geo-btn'),
+    statusText: document.getElementById('status-text'),
+    errorBox: document.getElementById('error-box'),
+    result: document.getElementById('result'),
+  };
+
+  // ---------- Lapisan akses data (fetch + async/await) ----------
+
+  /**
+   * Menangani response fetch: melempar Error dengan pesan yang
+   * jelas sesuai kode status, atau mengembalikan data jika sukses.
+   */
+  const handleWeatherResponse = async (response) => {
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('API key tidak valid atau belum aktif. Key baru dari OpenWeather butuh waktu 10 menit–2 jam untuk aktif setelah didaftarkan.');
+      }
+      if (response.status === 404) {
+        throw new Error('Kota tidak ditemukan. Periksa kembali ejaannya.');
+      }
+      throw new Error(data?.message ?? 'Gagal mengambil data cuaca. Coba lagi nanti.');
+    }
+
+    return data;
+  };
+
+  const getWeatherByCity = async (cityName) => {
+    const params = new URLSearchParams({ q: cityName, appid: API_KEY, units: 'metric', lang: 'id' });
+    let response;
+    try {
+      response = await fetch(`${CURRENT_WEATHER_URL}?${params}`);
+    } catch {
+      throw new Error('Tidak dapat menghubungi server cuaca. Periksa koneksi internet Anda.');
+    }
+    return handleWeatherResponse(response);
+  };
+
+  const getWeatherByCoords = async (latitude, longitude) => {
+    const params = new URLSearchParams({ lat: latitude, lon: longitude, appid: API_KEY, units: 'metric', lang: 'id' });
+    let response;
+    try {
+      response = await fetch(`${CURRENT_WEATHER_URL}?${params}`);
+    } catch {
+      throw new Error('Tidak dapat menghubungi server cuaca. Periksa koneksi internet Anda.');
+    }
+    return handleWeatherResponse(response);
+  };
+
+  // ---------- Lapisan tampilan (render) ----------
+
+  const setLoading = (isLoading) => {
+    els.searchBtn.disabled = isLoading;
+    els.geoBtn.disabled = isLoading;
+    els.searchBtn.textContent = isLoading ? 'Mencari…' : 'Cari';
+    els.statusText.textContent = isLoading ? 'Membaca data atmosfer…' : '';
+  };
+
+  const showError = (message) => {
+    els.errorBox.textContent = message;
+    els.errorBox.classList.remove('hidden');
+    els.result.classList.add('hidden');
+  };
+
+  const clearError = () => els.errorBox.classList.add('hidden');
+
+  const renderWeather = (data) => {
+    const { weather, main, wind, name, sys } = data;
+    const [{ description, id: conditionId }] = weather;
+    const visual = getWeatherVisual(conditionId);
+
+    document.body.dataset.mood = visual.mood;
+
+    const locationLabel = [name, sys?.country].filter(Boolean).join(', ');
+
+    els.result.innerHTML = `
+      <div class="readout">
+        <p class="location">${locationLabel}</p>
+        <div class="hero-temp">
+          <span class="icon">${visual.icon}</span>
+          <span class="temp">${Math.round(main.temp)}°</span>
+        </div>
+        <p class="condition">${capitalize(description)}</p>
+        <p class="feels-like">Terasa seperti ${Math.round(main.feels_like)}°</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Kelembapan</span><span class="stat-value">${main.humidity}%</span></div>
+        <div class="stat"><span class="stat-label">Angin</span><span class="stat-value">${Math.round(wind.speed * 3.6)} km/j</span></div>
+        <div class="stat"><span class="stat-label">Tekanan</span><span class="stat-value">${main.pressure} hPa</span></div>
+        <div class="stat"><span class="stat-label">Tertinggi</span><span class="stat-value">${Math.round(main.temp_max)}°</span></div>
+        <div class="stat"><span class="stat-label">Terendah</span><span class="stat-value">${Math.round(main.temp_min)}°</span></div>
+      </div>
+    `;
+
+    els.result.classList.remove('hidden');
+    clearError();
+  };
+
+  // ---------- Orkestrasi (event handlers) ----------
+
+  const handleSearch = async () => {
+    const city = els.cityInput.value.trim();
+
+    if (!API_KEY || API_KEY === 'MASUKKAN_API_KEY_OPENWEATHER_DI_SINI') {
+      showError('API key belum diisi di dalam kode. Buka file ini, cari baris "const API_KEY" di bagian <script>, lalu ganti dengan key asli dari OpenWeatherMap.');
+      return;
+    }
+    if (!city) {
+      showError('Masukkan nama kota terlebih dahulu.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await getWeatherByCity(city);
+      renderWeather(data);
+    } catch (error) {
+      showError(error.message ?? 'Terjadi kesalahan yang tidak terduga.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGeolocation = () => {
+    if (!API_KEY || API_KEY === 'MASUKKAN_API_KEY_OPENWEATHER_DI_SINI') {
+      showError('API key belum diisi di dalam kode. Lihat baris "const API_KEY" di bagian <script>.');
+      return;
+    }
+    if (!navigator.geolocation) {
+      showError('Perangkat ini tidak mendukung deteksi lokasi otomatis.');
+      return;
+    }
+
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { latitude, longitude } = coords;
+          const data = await getWeatherByCoords(latitude, longitude);
+          renderWeather(data);
+        } catch (error) {
+          showError(error.message ?? 'Terjadi kesalahan yang tidak terduga.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      () => {
+        showError('Izin lokasi ditolak, atau lokasi tidak tersedia.');
+        setLoading(false);
+      }
+    );
+  };
+
+  els.searchBtn.addEventListener('click', handleSearch);
+  els.geoBtn.addEventListener('click', handleGeolocation);
+  els.cityInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') handleSearch();
+  });
+</script>
+</body>
+</html>
